@@ -2,40 +2,39 @@
 
 --- 
 
-> Keycloak企业微信登录插件
+[🇺🇸 English](README_en-US.md) | **[🇨🇳 简体中文](README.md)**
 
-## Build package
+
+> Keycloak 企业微信登录插件。相关视频：《[在 Keycloak 中集成企业微信登录演示 - Jeff Tian的视频 - 知乎](https://www.zhihu.com/zvideo/1484138937099190272) 》
+
+## 在线体验
+
+- [点击我，右上角点击登录，然后选择使用企业微信登录](https://keycloak.jiwai.win/realms/UniHeart/account/ )
+
+## 开发
+
+### 构建 package
 
 ```shell
 mvn clean install
 mvn clean package -e -U
 ```
 
-Keycloak 15.0.0 测试通过【感谢[potterhe](https://github.com/potterhe)适配新版】
-
-```bash
-# build from source
-mvn clean package
-
-# add the jar to the Keycloak server (create `providers` folder if needed)
-mkdir -p $KEYCLOAK_HOME/providers/
-cp target/keycloak-services-social-wechat-work.jar $KEYCLOAK_HOME/providers/
-
-# add config page templates to the Keycloak server
-cp themes/base/admin/resources/partials/realm-identity-provider-wechat-work.html $KEYCLOAK_HOME/themes/base/admin/resources/partials/
-cp themes/base/admin/resources/partials/realm-identity-provider-wechat-work-ext.html $KEYCLOAK_HOME/themes/base/admin/resources/partials/
-
-# add `<module name="org.infinispan" services="import"/>` to dependencies
-sed -ie 's#<dependencies>#<dependencies><module name="org.infinispan" services="import"/>#' $KEYCLOAK_HOME/modules/system/layers/keycloak/org/keycloak/keycloak-services/main/module.xml
-```
-
-## Dev
+### 格式化代码
 
 ```bash
 # format code
 mvn com.coveo:fmt-maven-plugin:format
 ```
 
-## Reference
+### 版本更新
 
-- Based on [jyqq163/keycloak-services-social-weixin](https://github.com/jyqq163/keycloak-services-social-weixin)
+当需要更新本项目的版本时，需要修改 pom.xml 中的版本号。或者使用如下命令，比如将版本号改为 0.5.14：
+
+```shell
+mvn versions:set -DnewVersion=0.5.14
+```
+
+## 感谢
+
+- 感谢 [ kkzxak47/keycloak-services-social-wechatwork](https://github.com/kkzxak47/keycloak-services-social-wechatwork) 提供的基础代码，本仓库从该仓库 fork 而来。

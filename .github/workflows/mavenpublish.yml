@@ -3,8 +3,12 @@ name: Maven Package
 on:
   release:
     types: [released]
-  push:
+
+  workflow_run:
+    workflows: [ "Release Workflow" ]
     branches: [ master ]
+    types:
+      - completed
 
 jobs:
   build:
