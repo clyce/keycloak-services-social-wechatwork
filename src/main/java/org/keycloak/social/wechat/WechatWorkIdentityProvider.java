@@ -22,15 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.*;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.DefaultCacheManager;
-import org.keycloak.OAuth2Constants;
-import org.keycloak.OAuthErrorException;
 import org.keycloak.broker.oidc.AbstractOAuth2IdentityProvider;
 import org.keycloak.broker.oidc.mappers.AbstractJsonUserAttributeMapper;
 import org.keycloak.broker.provider.AuthenticationRequest;
@@ -38,16 +33,10 @@ import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.broker.provider.IdentityBrokerException;
 import org.keycloak.broker.provider.util.SimpleHttp;
 import org.keycloak.broker.social.SocialIdentityProvider;
-import org.keycloak.common.ClientConnection;
-import org.keycloak.events.Errors;
 import org.keycloak.events.EventBuilder;
-import org.keycloak.events.EventType;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
-import org.keycloak.services.ErrorPage;
-import org.keycloak.services.messages.Messages;
-import org.keycloak.sessions.AuthenticationSessionModel;
 
 public class WechatWorkIdentityProvider
         extends AbstractOAuth2IdentityProvider<WechatWorkProviderConfig>
@@ -85,6 +74,7 @@ public class WechatWorkIdentityProvider
     private static final String WECHAT_WORK_CACHE_NAME = "wechat_work_sso";
     private static final ConcurrentMap<String, Cache<String, String>> caches =
             new ConcurrentHashMap<>();
+    protected KeycloakSession session;
 
     private static Cache<String, String> createCache(String suffix) {
         try {
@@ -156,11 +146,12 @@ public class WechatWorkIdentityProvider
         config.setAuthorizationUrl(AUTH_URL);
         config.setQrcodeAuthorizationUrl(QRCODE_AUTH_URL);
         config.setTokenUrl(TOKEN_URL);
+        this.session = session;
     }
 
     @Override
     public Object callback(RealmModel realm, AuthenticationCallback callback, EventBuilder event) {
-        return new Endpoint(callback, realm, event);
+        return new org.keycloak.social.wechat.Endpoint(this, callback, realm, event);
     }
 
     @Override
@@ -183,7 +174,7 @@ public class WechatWorkIdentityProvider
         if (email == null || email.length() == 0) {
             email = getJsonProperty(profile, "email");
         }
-        if(email != null) {
+        if (email != null) {
             identity.setFirstName(email.split("@")[0].toLowerCase());
             identity.setEmail(email);
         }
@@ -297,87 +288,6 @@ public class WechatWorkIdentityProvider
 
         logger.info("授权链接是：" + uriBuilder.build().toString());
         return uriBuilder;
-    }
-
-    protected class Endpoint {
-        protected AuthenticationCallback callback;
-        protected RealmModel realm;
-        protected EventBuilder event;
-
-        @Context
-        protected KeycloakSession session;
-
-        @Context
-        protected ClientConnection clientConnection;
-
-        @Context
-        protected HttpHeaders headers;
-
-        @Context
-        protected UriInfo uriInfo;
-
-        public Endpoint(AuthenticationCallback callback, RealmModel realm, EventBuilder event) {
-            this.callback = callback;
-            this.realm = realm;
-            this.event = event;
-        }
-
-        @GET
-        public Response authResponse(
-                @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_STATE) String state,
-                @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_CODE) String authorizationCode,
-                @QueryParam(OAuth2Constants.ERROR) String error,
-                @QueryParam("appid") String client_id) {
-            logger.info("OAUTH2_PARAMETER_CODE=" + authorizationCode);
-
-            // 以下样版代码从 AbstractOAuth2IdentityProvider 里获取的。
-            if (state == null) {
-                return errorIdentityProviderLogin(Messages.IDENTITY_PROVIDER_MISSING_STATE_ERROR);
-            }
-            try {
-                AuthenticationSessionModel authSession =
-                        this.callback.getAndVerifyAuthenticationSession(state);
-
-                if (session != null) {
-                    session.getContext().setAuthenticationSession(authSession);
-                }
-
-                if (error != null) {
-                    logger.error(error + " for broker login " + getConfig().getProviderId());
-                    if (error.equals(ACCESS_DENIED)) {
-                        return callback.cancelled(getConfig());
-                    } else if (error.equals(OAuthErrorException.LOGIN_REQUIRED)
-                            || error.equals(OAuthErrorException.INTERACTION_REQUIRED)) {
-                        return callback.error(error);
-                    } else {
-                        return callback.error(Messages.IDENTITY_PROVIDER_UNEXPECTED_ERROR);
-                    }
-                }
-
-                if (authorizationCode != null) {
-                    BrokeredIdentityContext federatedIdentity = getFederatedIdentity(authorizationCode);
-
-                    federatedIdentity.setIdpConfig(getConfig());
-                    federatedIdentity.setIdp(WechatWorkIdentityProvider.this);
-                    federatedIdentity.setAuthenticationSession(authSession);
-
-                    return callback.authenticated(federatedIdentity);
-                }
-            } catch (WebApplicationException e) {
-                e.printStackTrace(System.out);
-                return e.getResponse();
-            } catch (Exception e) {
-                logger.error("Failed to make identity provider oauth callback", e);
-                e.printStackTrace(System.out);
-            }
-            return errorIdentityProviderLogin(Messages.IDENTITY_PROVIDER_UNEXPECTED_ERROR);
-        }
-
-        private Response errorIdentityProviderLogin(String message) {
-            event.event(EventType.IDENTITY_PROVIDER_LOGIN);
-            event.error(Errors.IDENTITY_PROVIDER_LOGIN_FAILURE);
-            return ErrorPage.error(session, null, Response.Status.BAD_GATEWAY, message);
-        }
     }
 
     @Override
