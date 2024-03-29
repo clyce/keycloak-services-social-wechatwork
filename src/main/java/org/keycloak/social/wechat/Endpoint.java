@@ -1,6 +1,7 @@
 package org.keycloak.social.wechat;
 
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
@@ -49,6 +50,7 @@ class Endpoint extends WechatWorkIdentityProvider {
     }
 
     @GET
+    @Path("")
     public Response authResponse(
             @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_STATE) String state,
             @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_CODE) String authorizationCode,
